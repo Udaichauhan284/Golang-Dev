@@ -1,1 +1,1 @@
-Hey Go, Going GoodNice Language
+Hello Golang

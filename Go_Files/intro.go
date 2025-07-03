@@ -4,6 +4,7 @@
 package main
 
 import (
+	//"bufio"
 	"fmt"
 	"os"
 )
@@ -90,8 +91,54 @@ func main(){
 	}
 	defer f.Close();
 
-	f.WriteString("Hey Go, Going Good");
-	f.WriteString("Nice Language"); //this work in append mode
+	//f.WriteString("Hey Go, Going Good");
+	//f.WriteString("Nice Language"); //this work in append mode
+
+	//creating the bytes slice
+	bytes := []byte("Hello Golang");
+	f.Write(bytes);
+
+	//--> Read and write to another file (streaming fashion)
+	/* sourceFile, err := os.Open("example.txt");
+	if err != nil {
+		panic(err)
+	}
+
+	defer sourceFile.Close();
 	
+	destFile, err := os.Create("example2.txt");
+	if err != nil {
+		panic(err);
+	}
+	defer destFile.Close();
+
+	//creating new reader, which read from bufio method
+	reader := bufio.NewReader(sourceFile);
+	writer := bufio.NewWriter(destFile);
+
+	for {
+		b, err := reader.ReadByte();
+		if err != nil {
+			if err.Error() != "EOF"{
+				panic(err)
+			}
+			break;
+		}
+		e := writer.WriteByte(b); //passing the byte, this return the byte
+		if e != nil {
+			panic(e);
+		}
+	}
+	//now flush the writer
+	writer.Flush();
+	*/
+
+	// --->> Deleting the file <<----
+
+	err1 := os.Remove("example2.txt");
+	if err1 != nil {
+		panic(err);
+	}
+
 	fmt.Println("Progam Run Successfully");
 }
