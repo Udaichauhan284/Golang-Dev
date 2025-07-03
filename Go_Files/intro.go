@@ -137,7 +137,7 @@ func main(){
 
 	err1 := os.Remove("example2.txt");
 	if err1 != nil {
-		panic(err);
+		panic(err1);
 	}
 
 	fmt.Println("Progam Run Successfully");
