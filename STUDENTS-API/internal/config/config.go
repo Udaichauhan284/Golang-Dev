@@ -9,14 +9,14 @@ import (
 )
 
 type HTTPServer struct {
-	Addr string
+	Addr string `yaml:"address" env-required:"true"`
 }
 
 //env-default: "production", use this in Env, this help us to directly deployed on production with no failure and maintain the logs
-type Config struct{
-	Env string `yaml:"env" env:"ENV" env-required:"true"`
-	StoragePath string `yaml:"storgae_path" env-required:"true"`
-	HTTPServer `yaml:"http_server"`
+type Config struct {
+	Env         string `yaml:"env" env:"ENV" env-required:"true"`
+	StoragePath string `yaml:"storage_path" env-required:"true"`
+	HTTPServer  `yaml:"http_server"`
 }
 
 
