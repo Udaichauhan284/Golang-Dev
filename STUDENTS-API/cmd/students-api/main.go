@@ -12,12 +12,22 @@ import (
 
 	"github.com/Udaichauhan284/Golang-Dev/internal/config"
 	student "github.com/Udaichauhan284/Golang-Dev/internal/http/handlers/students"
+	"github.com/Udaichauhan284/Golang-Dev/internal/storage/sqlite"
 )
 
 func main() {
 	//load config
-	cfg := config.MustLoad()
+	cfg := config.MustLoad();
+
 	//database setup
+	_, err := sqlite.New(cfg);
+	if err != nil {
+		log.Fatal(err);
+	}
+
+	slog.Info("Storage Initialized", slog.String("env", cfg.Env), slog.String("version", "1.0.0"))
+
+
 	//setup router
 	router := http.NewServeMux()
 
@@ -55,8 +65,8 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second);
 	defer cancel()
 
-	err := server.Shutdown(ctx);
-	if err != nil {
+	err1 := server.Shutdown(ctx);
+	if err1 != nil {
 		slog.Error("Failed to Shutdown server ", slog.String("error", err.Error()));
 	}
 
