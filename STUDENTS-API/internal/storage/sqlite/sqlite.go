@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/Udaichauhan284/Golang-Dev/internal/config"
 	_ "github.com/mattn/go-sqlite3" //this is in work behind the secene so thatswhy i have put the _, it is not working like directly inUse, like database/sql
@@ -34,3 +35,33 @@ func New(cfg *config.Config) (*Sqlite, error){
 		Db : db,
 	}, nil
 }
+
+//now i want to implement CreateStudent, to implements here implicity
+//now this method attach to this Sqlite struct
+func (s *Sqlite)CreateStudent(name string, email string, age int) (int64, error){
+	//now want to create record in database
+
+	stmt, err := s.Db.Prepare("INSERT INTO students (name, email, age) VALUES (?,?,?)");
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close();
+
+	result, err := stmt.Exec(name, email, age);
+	if err != nil {
+		return 0, err
+	}
+
+	//now checking how many rows were inserted
+	rowsAffected, _ := result.RowsAffected();
+	fmt.Println("Rows Affected: ", rowsAffected);
+
+	lastId, err := result.LastInsertId();
+	if err != nil {
+		return 0, err;
+	}
+
+	return lastId, nil;
+}
+
+//these question ?, help me to prevent the SQL injection attack on website, Values will be prepare later

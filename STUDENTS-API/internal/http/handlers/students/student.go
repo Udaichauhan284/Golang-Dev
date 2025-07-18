@@ -8,16 +8,17 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/Udaichauhan284/Golang-Dev/internal/storage"
 	"github.com/Udaichauhan284/Golang-Dev/internal/types"
 	"github.com/Udaichauhan284/Golang-Dev/internal/utils/response"
 	"github.com/go-playground/validator/v10"
 )
 
 //creation of new student
-func New() http.HandlerFunc {
+func New(storage storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request){
 
-		var student types.Student
+		var student types.Student;
 		slog.Info("Creating a student");
 
 		//now decode this student body with json deconder
@@ -48,9 +49,24 @@ func New() http.HandlerFunc {
 			return;
 		}
 
+		//creation of students
+		lastId, err := storage.CreateStudent(
+			student.Name,
+			student.Email,
+			student.Age,
+		)
+
+		slog.Info("User created ", slog.Int64("userId" , lastId));
+		
+		//returning return post not run and students not able to created
+		if err != nil {
+			response.WriteJson(w, http.StatusInternalServerError, err);
+			return;
+		}
+
 		
 
-		response.WriteJson(w, http.StatusCreated, map[string]string{"success" : "OK"});
+		response.WriteJson(w, http.StatusCreated, map[string]int64{"id": lastId});
 
 
 		// w.Write([]byte("Welcome To Students APIs"));
