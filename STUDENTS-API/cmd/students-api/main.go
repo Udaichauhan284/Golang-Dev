@@ -17,21 +17,23 @@ import (
 
 func main() {
 	//load config
-	cfg := config.MustLoad();
+	cfg := config.MustLoad()
 
 	//database setup
-	storage, err := sqlite.New(cfg);
+	storage, err := sqlite.New(cfg)
 	if err != nil {
-		log.Fatal(err);
+		log.Fatal(err)
 	}
 
 	slog.Info("Storage Initialized", slog.String("env", cfg.Env), slog.String("version", "1.0.0"))
 
-
 	//setup router
 	router := http.NewServeMux()
 
-	router.HandleFunc("POST /api/students", student.New(storage));
+	router.HandleFunc("POST /api/students", student.New(storage))
+
+	//now creating the router to getById
+	router.HandleFunc("GET /api/students/{id}", student.GetById(storage))
 
 	//setup server
 	server := http.Server{
@@ -39,7 +41,7 @@ func main() {
 		Handler: router,
 	}
 
-	slog.Info("server started: ", slog.String("address", cfg.Addr));
+	slog.Info("server started: ", slog.String("address", cfg.Addr))
 
 	// fmt.Printf("Server started %s", cfg.HTTPServer.Addr)
 
@@ -47,9 +49,9 @@ func main() {
 	//to implement the gracefully stop, use the go routine.
 
 	//making the channel
-	done := make(chan os.Signal, 1);
+	done := make(chan os.Signal, 1)
 
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM);
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		err := server.ListenAndServe()
@@ -60,15 +62,15 @@ func main() {
 
 	<-done
 
-	slog.Info("shutting down the server");
+	slog.Info("shutting down the server")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second);
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err1 := server.Shutdown(ctx);
+	err1 := server.Shutdown(ctx)
 	if err1 != nil {
-		slog.Error("Failed to Shutdown server ", slog.String("error", err.Error()));
+		slog.Error("Failed to Shutdown server ", slog.String("error", err.Error()))
 	}
 
-	slog.Info("Server Shutdown successfully");
+	slog.Info("Server Shutdown successfully")
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Udaichauhan284/Golang-Dev/internal/config"
+	"github.com/Udaichauhan284/Golang-Dev/internal/types"
 	_ "github.com/mattn/go-sqlite3" //this is in work behind the secene so thatswhy i have put the _, it is not working like directly inUse, like database/sql
 )
 
@@ -65,3 +66,26 @@ func (s *Sqlite) CreateStudent(name string, email string, age int) (int64, error
 }
 
 //these question ?, help me to prevent the SQL injection attack on website, Values will be prepare later
+
+func (s *Sqlite) GetStudentById(id int64) (types.Student, error) {
+	stmt, err := s.Db.Prepare("SELECT * FROM students WHERE id = ? LIMIT 1")
+	if err != nil {
+		return types.Student{}, err
+	}
+
+	defer stmt.Close()
+
+	//that data came from stmt, need to serlialize into struct
+	var student types.Student
+
+	err = stmt.QueryRow(id).Scan(&student.Id, &student.Name, &student.Email, &student.Age)
+	if err != nil {
+		//if user not found
+		if err == sql.ErrNoRows {
+			return types.Student{}, fmt.Errorf("no student found with id %s", fmt.Sprint(id))
+		}
+		return types.Student{}, fmt.Errorf("query error: %w", err)
+	}
+
+	return student, nil
+}

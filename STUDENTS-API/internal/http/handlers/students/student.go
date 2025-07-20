@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/Udaichauhan284/Golang-Dev/internal/storage"
 	"github.com/Udaichauhan284/Golang-Dev/internal/types"
@@ -14,29 +15,29 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-//creation of new student
+// creation of new student
 func New(storage storage.Storage) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request){
+	return func(w http.ResponseWriter, r *http.Request) {
 
-		var student types.Student;
-		slog.Info("Creating a student");
+		var student types.Student
+		slog.Info("Creating a student")
 
 		//now decode this student body with json deconder
 		err := json.NewDecoder(r.Body).Decode(&student)
 		//now check the error
-		if errors.Is(err, io.EOF){
+		if errors.Is(err, io.EOF) {
 			//if body payload is empty, then check if that error is End of file
 			// response.WriteJson(w, http.StatusBadRequest, response.GeneralError(err));
 
 			//now sending the customize error
-			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(fmt.Errorf("empty body")));
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(fmt.Errorf("empty body")))
 
-			return;
+			return
 		}
 
 		if err != nil {
-			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(err));
-			return;
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(err))
+			return
 		}
 
 		//request validation
@@ -44,9 +45,9 @@ func New(storage storage.Storage) http.HandlerFunc {
 			// response.WriteJson(w, http.StatusBadRequest, response.ValidatorError(err)); the err which we are passing into the ValidatorError is giving me error because it want validationError to we pass, so for that we need to type cast the err to validation error
 
 			//type casting
-			validateErrs := err.(validator.ValidationErrors);
-			response.WriteJson(w, http.StatusBadRequest, response.ValidatorError(validateErrs));
-			return;
+			validateErrs := err.(validator.ValidationErrors)
+			response.WriteJson(w, http.StatusBadRequest, response.ValidatorError(validateErrs))
+			return
 		}
 
 		//creation of students
@@ -56,19 +57,42 @@ func New(storage storage.Storage) http.HandlerFunc {
 			student.Age,
 		)
 
-		slog.Info("User created ", slog.Int64("userId" , lastId));
-		
+		slog.Info("User created ", slog.Int64("userId", lastId))
+
 		//returning return post not run and students not able to created
 		if err != nil {
-			response.WriteJson(w, http.StatusInternalServerError, err);
-			return;
+			response.WriteJson(w, http.StatusInternalServerError, err)
+			return
 		}
 
-		
-
-		response.WriteJson(w, http.StatusCreated, map[string]int64{"id": lastId});
-
+		response.WriteJson(w, http.StatusCreated, map[string]int64{"id": lastId})
 
 		// w.Write([]byte("Welcome To Students APIs"));
+	}
+}
+
+// creating a function to get the students by thier id
+func GetById(storage storage.Storage) http.HandlerFunc {
+
+	//return the handlerFunc
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+
+		slog.Info("getting a student: ", slog.String("id", id))
+
+		intId, err := strconv.ParseInt(id, 10, 64)
+		if err != nil {
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(err))
+			return
+		}
+		student, e := storage.GetStudentById(intId)
+		if e != nil {
+			slog.Error("error getting user", slog.String("id", id), slog.String("error", e.Error()));
+
+			response.WriteJson(w, http.StatusInternalServerError, response.GeneralError(e))
+			return
+		}
+
+		response.WriteJson(w, http.StatusOK, student)
 	}
 }
