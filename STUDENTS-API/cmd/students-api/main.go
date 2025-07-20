@@ -30,10 +30,17 @@ func main() {
 	//setup router
 	router := http.NewServeMux()
 
-	router.HandleFunc("POST /api/students", student.New(storage))
+	router.HandleFunc("POST /api/students", student.New(storage));
 
 	//now creating the router to getById
-	router.HandleFunc("GET /api/students/{id}", student.GetById(storage))
+	router.HandleFunc("GET /api/students/{id}", student.GetById(storage));
+
+	//now creating the endpoint to access the list of student
+	router.HandleFunc("GET /api/students", student.GetList(storage));
+
+	router.HandleFunc("PUT /api/students/{id}", student.UpdateStudent(storage));
+
+	router.HandleFunc("DELETE /api/students/{id}", student.DeleteStudent(storage));
 
 	//setup server
 	server := http.Server{

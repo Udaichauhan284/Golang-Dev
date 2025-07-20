@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
+	
 	"github.com/Udaichauhan284/Golang-Dev/internal/storage"
 	"github.com/Udaichauhan284/Golang-Dev/internal/types"
 	"github.com/Udaichauhan284/Golang-Dev/internal/utils/response"
@@ -94,5 +95,71 @@ func GetById(storage storage.Storage) http.HandlerFunc {
 		}
 
 		response.WriteJson(w, http.StatusOK, student)
+	}
+}
+
+//now here creating that func which is declare in main, for getting the details of students
+func GetList(storage storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slog.Info("Getting All Students");
+
+		students, err := storage.GetStudents();
+		if err != nil {
+			response.WriteJson(w, http.StatusInternalServerError, err);
+			return;
+		}
+		response.WriteJson(w, http.StatusOK, students);
+	}
+}
+
+func UpdateStudent(storage storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r * http.Request){
+		idStr := r.PathValue("id");
+		intId, err := strconv.ParseInt(idStr, 10, 64);
+		if err != nil {
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(err));
+			return
+		}
+
+		var student types.Student;
+		readErr := json.NewDecoder(r.Body).Decode(&student);
+		if readErr != nil {
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(readErr));
+			return;
+		}
+
+		if valErr := validator.New().Struct(student); valErr != nil {
+			validateErrs := valErr.(validator.ValidationErrors);
+			response.WriteJson(w, http.StatusBadRequest, response.ValidatorError(validateErrs));
+			return;
+		}
+
+		err = storage.UpdateStudent(intId, student.Name, student.Email, student.Age);
+		if err != nil {
+			response.WriteJson(w, http.StatusNotFound, response.GeneralError(err));
+			return;
+		}
+
+		response.WriteJson(w, http.StatusOK, map[string]string{"message" : "student update successfully"});
+	}
+}
+
+
+func DeleteStudent(storage storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request){
+		idStr := r.PathValue("id");
+		intId, err := strconv.ParseInt(idStr, 10, 64);
+		if err != nil {
+			response.WriteJson(w, http.StatusBadRequest, response.GeneralError(err));
+			return
+		}
+
+		err = storage.DeleteStudent(intId);
+		if err != nil {
+			response.WriteJson(w, http.StatusNotFound, response.GeneralError(err));
+			return;
+		}
+
+		response.WriteJson(w, http.StatusOK, map[string]string{"message" : "student deleted successfully"});
 	}
 }

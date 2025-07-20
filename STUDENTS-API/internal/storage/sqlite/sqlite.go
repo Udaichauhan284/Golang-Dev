@@ -89,3 +89,79 @@ func (s *Sqlite) GetStudentById(id int64) (types.Student, error) {
 
 	return student, nil
 }
+
+//now need to implement that function which is given in storage interface, plug that func to student struct
+func (s *Sqlite) GetStudents() ([]types.Student, error){
+	stmt, err := s.Db.Prepare("SELECT id, name, email, age FROM students");
+	if err != nil {
+		return nil, err
+	}
+
+	defer stmt.Close();
+
+	rows, err := stmt.Query();
+	if err != nil {
+		return nil, err;
+	}
+
+	//close the rows
+	defer rows.Close();
+
+	var students []types.Student;
+
+	//processing each row
+	for rows.Next(){
+		var student types.Student;
+
+		err := rows.Scan(&student.Id, &student.Name, &student.Email, &student.Age);
+		if err != nil {
+			return nil, err
+		}
+
+		students = append(students, student);
+	}
+
+	return students, nil;
+}
+
+//now plug the func to student struct which given in storage interface
+func (s *Sqlite) UpdateStudent(id int64, name string, email string, age int) error {
+	stmt, err := s.Db.Prepare("UPDATE students SET name=?, email=?, age=? WHERE id=?");
+	if err != nil {
+		return err;
+	}
+	defer stmt.Close();
+
+	result, err := stmt.Exec(name, email, age, id)
+	if err != nil {
+		return err;
+	}
+	
+	rowAffected, _ := result.RowsAffected();
+	if rowAffected == 0 {
+		return fmt.Errorf("no student found with given id: %d", id)
+	}
+	return nil;
+}
+
+//now plug the Delete func to struc
+func (s *Sqlite) DeleteStudent(id int64) error {
+	stmt, err := s.Db.Prepare("DELETE FROM students WHERE id=?");
+	if err != nil {
+		return err;
+	}
+	defer stmt.Close();
+
+	result, err := stmt.Exec(id);
+	if err != nil{
+		return err;
+	}
+
+	rowAffected, _ := result.RowsAffected();
+	if rowAffected == 0{
+		return fmt.Errorf("no student found with given id: %d", id);
+	}
+
+	return nil;
+}
+
