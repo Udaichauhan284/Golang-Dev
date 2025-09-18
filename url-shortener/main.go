@@ -31,4 +31,6 @@ func main(){
 func setUpRouters(router *gin.Engine){
 	router.POST("/api/v1", routes.ShortenURL);
 	router.GET("/api/v1/:shortID", routes.GetByShortID);
+	router.DELETE("/api/v1/:shortID", routes.DeleteURL);
+	router.PUT("/api/v1/:shortID", routes.EditURL);
 }
