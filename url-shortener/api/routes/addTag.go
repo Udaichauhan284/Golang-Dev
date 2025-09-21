@@ -6,15 +6,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/udaichauhan/url_shortener/api/database"
+	"github.com/udaichauhan/url_shortener/api/models"
 )
 
-type TagRequest struct{
-	ShortID string `json:"shortID"`
-	Tag string `json:"tag"`
-}
 
 func AddTag(c *gin.Context){
-	var tagRequest TagRequest;
+	var tagRequest models.TagRequest;
 	if err := c.ShouldBindJSON(&tagRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error" : "Invalid Request Body",
@@ -25,10 +22,10 @@ func AddTag(c *gin.Context){
 	shortId := tagRequest.ShortID;
 	tag := tagRequest.Tag;
 
-	r := database.CreateClient(0);
-	defer r.Close();
+	// r := database.CreateClient(0);
+	// defer r.Close();
 
-	val, err := r.Get(database.Ctx, shortId).Result();
+	val, err := database.Client.Get(database.Ctx, shortId).Result();
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error" : "Data not found for the given ShortID",
@@ -75,7 +72,7 @@ func AddTag(c *gin.Context){
 		})
 		return
 	}
-	err = r.Set(database.Ctx, shortId, updatedData, 0).Err();
+	err = database.Client.Set(database.Ctx, shortId, updatedData, 0).Err();
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error" : "Failed to Update the Database",

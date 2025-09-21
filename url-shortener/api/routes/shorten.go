@@ -16,96 +16,154 @@ import (
 )
 
 func ShortenURL(c *gin.Context) {
-	var body models.Request;
+	var body models.Request
 
-	if err := c.ShouldBind(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error" : "Cannot Parse JSON"})
-		return;
+	// Parse JSON request body
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot Parse JSON: " + err.Error()})
+		return
 	}
 
-	//creating the client
-	r2 := database.CreateClient(1);
-	defer r2.Close();
+	// Creating the Redis client for rate limiting
+	r2 := database.CreateClient(1)
+	defer r2.Close()
 
+	// Check if Redis connection is working
+	_, err := r2.Ping(database.Ctx).Result()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Redis connection failed"})
+		return
+	}
+
+	// Rate limiting logic
 	val, err := r2.Get(database.Ctx, c.ClientIP()).Result()
-	if err == redis.Nil{
-		_ = r2.Set(database.Ctx, c.ClientIP(), os.Getenv("API_QUOTA"), 30*60*time.Second)
-	}else {
-		val , _ = r2.Get(database.Ctx, c.ClientIP()).Result();
-		valInt, _ := strconv.Atoi(val);
+	if err == redis.Nil {
+		// First time user, set quota
+		err := r2.Set(database.Ctx, c.ClientIP(), os.Getenv("API_QUOTA"), 30*60*time.Second).Err()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set rate limit"})
+			return
+		}
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Rate limit check failed"})
+		return
+	} else {
+		// User exists, check remaining quota
+		valInt, err := strconv.Atoi(val)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid rate limit value"})
+			return
+		}
 
 		if valInt <= 0 {
-			limit, _ := r2.TTL(database.Ctx, c.ClientIP()).Result();
+			limit, _ := r2.TTL(database.Ctx, c.ClientIP()).Result()
 			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"error" : "rate limit exceeded",
-				"rate_limit_reset" : limit/time.Nanosecond/time.Minute,
+				"error":             "Rate limit exceeded",
+				"rate_limit_reset":  limit / time.Nanosecond / time.Minute,
 			})
-			return;
+			return
 		}
 	}
 
-	if !govalidator.IsURL(body.URL){
-		c.JSON(http.StatusBadRequest, gin.H{"error" : "Invalid URL"});
-		return;
+	// URL validation
+	if !govalidator.IsURL(body.URL) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL"})
+		return
 	}
 
-	if !utils.IsDifferentDomain(body.URL){
+	// Domain validation
+	if !utils.IsDifferentDomain(body.URL) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"error" : "You cant hack this one",
+			"error": "You cant hack this one",
 		})
-		return;
+		return
 	}
 
-	body.URL = utils.EnsureHttpPerfect(body.URL);
+	// Ensure proper HTTP format
+	body.URL = utils.EnsureHttpPerfect(body.URL)
 
-	var id string;
-
+	// Generate ID
+	var id string
 	if body.CustomShort == "" {
-		id = uuid.New().String()[:6];
-	}else{
-		id = body.CustomShort;
+		id = uuid.New().String()[:6]
+	} else {
+		id = body.CustomShort
 	}
 
-	r := database.CreateClient(0);
-	defer r.Close();
+	// Create Redis client for URL storage
+	r := database.CreateClient(0)
+	defer r.Close()
 
-	val, _ = r.Get(database.Ctx, id).Result();
+	// Check if Redis connection is working
+	_, err = r.Ping(database.Ctx).Result()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "URL storage Redis connection failed"})
+		return
+	}
+
+	// Check if custom short URL already exists
+	val, err = r.Get(database.Ctx, id).Result()
+	if err != nil && err != redis.Nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing URL"})
+		return
+	}
+	
 	if val != "" {
 		c.JSON(http.StatusForbidden, gin.H{
-			"error" : "URL Custom Short Already Exists",
-		});
-		return;
+			"error": "URL Custom Short Already Exists",
+		})
+		return
 	}
 
+	// Set default expiry
 	if body.Expiry == 0 {
-		body.Expiry = 24;
+		body.Expiry = 24
 	}
 
-	r.Set(database.Ctx, id, body.URL, body.Expiry*3600*time.Second).Err();
+	// Store URL in Redis
+	err = r.Set(database.Ctx, id, body.URL, time.Duration(body.Expiry)*time.Hour).Err()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error" : "Unable to connect to the redis server",
-		});
-		return;
+			"error": "Unable to store URL: " + err.Error(),
+		})
+		return
 	}
 
+	// Prepare response
 	resp := models.Response{
-		Expiry : body.Expiry,
-		XRateLimitReset : 30,
-		XRateRemaining : 10,
-		URL : body.URL,
-		CustomShort : "",
-	};
+		Expiry:          body.Expiry,
+		XRateLimitReset: 30,
+		XRateRemaining:  10,
+		URL:             body.URL,
+		CustomShort:     "",
+	}
 
-	r2.Decr(database.Ctx, c.ClientIP());
+	// Decrement rate limit
+	err = r2.Decr(database.Ctx, c.ClientIP()).Err()
+	if err != nil {
+		// Log error but don't fail the request
+		// c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update rate limit"})
+		// return
+	}
 
-	val, _ = r2.Get(database.Ctx, c.ClientIP()).Result();
-	resp.XRateRemaining, _ = strconv.Atoi(val);
+	// Get remaining rate limit
+	val, err = r2.Get(database.Ctx, c.ClientIP()).Result()
+	if err == nil {
+		resp.XRateRemaining, _ = strconv.Atoi(val)
+	}
 
-	ttl, _ := r2.TTL(database.Ctx, c.ClientIP()).Result();
-	resp.XRateLimitReset = ttl/time.Nanosecond/time.Minute;
+	// Get TTL
+	ttl, err := r2.TTL(database.Ctx, c.ClientIP()).Result()
+	if err == nil {
+		resp.XRateLimitReset = ttl / time.Nanosecond / time.Minute
+	}
 
-	resp.CustomShort = os.Getenv("DOMAIN") + "/" + id;
+	// Set final short URL
+	domain := os.Getenv("DOMAIN")
+	if domain == "" {
+		domain = "http://localhost:8000" // Default domain
+	}
+	resp.CustomShort = domain + "/" + id
 
-	c.JSON(http.StatusOK, resp);
+	c.JSON(http.StatusOK, resp)
 }

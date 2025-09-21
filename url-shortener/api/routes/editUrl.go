@@ -18,18 +18,18 @@ func EditURL(c *gin.Context){
 		})
 	}
 
-	r := database.CreateClient(0);
-	defer r.Close();
+	// r := database.CreateClient(0);
+	// defer r.Close();
 
 	//check if the shortID exists in the DB or not;
-	val, err := r.Get(database.Ctx, shortID).Result();
+	val, err := database.Client.Get(database.Ctx, shortID).Result();
 	if err != nil || val == "" {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error" : "ShortID doesn't exixts",
 		});
 	}
 	//if everything is okay, update the content the URL with the shortID and also expriy time.
-	err = r.Set(database.Ctx, shortID, body.URL, body.Expiry*3600*time.Second).Err();
+	err = database.Client.Set(database.Ctx, shortID, body.URL, body.Expiry*3600*time.Second).Err();
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error" : "Unable to update the shorten content",
